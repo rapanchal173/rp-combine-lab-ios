@@ -408,7 +408,7 @@ This avoids firing an API request for every keystroke.
 
 ## 5.6 throttle
 
-Limits how frequently values can be emitted.
+Limits how frequently values can be emitted. It limits the rate at which a publisher emits elements.
 
 ```swift
     let subject = PassthroughSubject<String, Never>()
