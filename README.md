@@ -410,6 +410,34 @@ This avoids firing an API request for every keystroke.
 
 Limits how frequently values can be emitted.
 
+```swift
+    let subject = PassthroughSubject<String, Never>()
+    subject
+        .throttle(for: .seconds(1), scheduler: DispatchQueue.main, latest: true)
+        .sink { value in
+            print("Throttle result: \(value)")
+        }
+        .store(in: &cancellables)
+    
+    Task {
+        subject.send("A") // Emitted immediately (first value in window)
+        
+        try? await Task.sleep(for: .milliseconds(100))
+        subject.send("B")
+        
+        try? await Task.sleep(for: .milliseconds(100))
+        subject.send("C") // Since latest: true, "C" will be emitted when the timer fires
+        
+        
+        // Wait for the 1-second window to pass
+        try? await Task.sleep(for: .seconds(1))
+        subject.send("D") // Emitted immediately
+        
+        // Give time for the final output to print before the task finishes
+        try? await Task.sleep(for: .seconds(1))
+    }
+```
+
 Good use cases:
 
 - Scroll events
@@ -426,11 +454,22 @@ Combines the latest values from multiple publishers.
 Example: login validation.
 
 ```swift
-Publishers.CombineLatest($email, $password)
-    .map { email, password in
-        !email.isEmpty && password.count >= 8
-    }
-    .assign(to: &$isLoginEnabled)
+    let username = CurrentValueSubject<String, Never>("")
+    let password = CurrentValueSubject<String, Never>("")
+
+    // Combine the latest value of both fields
+    username.combineLatest(password)
+        .map { user, pass in
+            return !user.isEmpty && pass.count >= 6
+        }
+        .sink { isValid in
+            print("Form valid: \(isValid)")
+        }
+        .store(in: &cancellables)
+
+    username.send("alex_dev") // Output: Form valid: false
+    password.send("123456")   // Output: Form valid: true   ("alex_dev" + "123456")
+    password.send("123")      // Output: Form valid: false  ("alex_dev" + "123")
 ```
 
 Flow:
