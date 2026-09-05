@@ -1452,3 +1452,6 @@ Observation solves:
 ```
 
 In modern Swift projects, all three can coexist. The best architecture uses each one where it is strongest instead of forcing a single technology across every layer.
+
+<img width="694" height="390" alt="Screenshot 2026-09-05 at 2 52 14 PM" src="https://github.com/user-attachments/assets/3f1cdb40-3d42-4ce8-89db-c5972d3e4e88" />
+
