@@ -379,11 +379,18 @@ Waits for a quiet period before emitting.
 Ideal for search boxes.
 
 ```swift
-$searchText
-    .debounce(
-        for: .milliseconds(400),
-        scheduler: RunLoop.main
-    )
+var cancellables = Set<AnyCancellable>()
+    let searchTerm = PassthroughSubject<String, Never>()
+    searchTerm
+        .debounce(for: .milliseconds(400), scheduler: RunLoop.main)
+        .removeDuplicates()
+        .filter { !$0.isEmpty }
+        .sink { query in
+            print("Trigger API call for query: \(query)")
+        }
+        .store(in: &cancellables)
+    
+    searchTerm.send("swift")
 ```
 
 Flow:
