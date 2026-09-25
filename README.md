@@ -529,10 +529,40 @@ Good for multiple triggers feeding the same workflow.
 Transforms each value into another publisher and flattens the result.
 
 ```swift
-authService.login()
-    .flatMap { token in
-        userService.fetchProfile(token: token)
+import Combine
+import Foundation
+
+// Keep a global reference so subscriptions don't get deallocated
+var cancellables = Set<AnyCancellable>()
+
+// 1. Mock network function that returns a Publisher
+func performSearch(for query: String) -> AnyPublisher<[String], Never> {
+    let mockResults = ["\(query) - Result A", "\(query) - Result B"]
+    
+    return Just(mockResults)
+        .delay(for: .milliseconds(200), scheduler: DispatchQueue.main) // Simulate network delay
+        .eraseToAnyPublisher()
+}
+
+// 2. Input subject for user search text
+let searchInput = PassthroughSubject<String, Never>()
+
+// 3. Setup the flatMap pipeline
+searchInput
+    .debounce(for: .milliseconds(300), scheduler: DispatchQueue.main)
+    .removeDuplicates()
+    .flatMap { query -> AnyPublisher<[String], Never> in
+        print("-> Transforming query '\(query)' into a network request...")
+        return performSearch(for: query)
     }
+    .sink { results in
+        print("✅ Final Results Received: \(results)")
+    }
+    .store(in: &cancellables)
+
+// 4. Testing the flow
+print("User types: Swift")
+searchInput.send("Swift")
 ```
 
 Flow:
