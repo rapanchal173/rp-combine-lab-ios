@@ -529,40 +529,54 @@ Good for multiple triggers feeding the same workflow.
 Transforms each value into another publisher and flattens the result.
 
 ```swift
-import Combine
-import Foundation
-
-// Keep a global reference so subscriptions don't get deallocated
-var cancellables = Set<AnyCancellable>()
-
-// 1. Mock network function that returns a Publisher
-func performSearch(for query: String) -> AnyPublisher<[String], Never> {
-    let mockResults = ["\(query) - Result A", "\(query) - Result B"]
-    
-    return Just(mockResults)
-        .delay(for: .milliseconds(200), scheduler: DispatchQueue.main) // Simulate network delay
-        .eraseToAnyPublisher()
+// MARK: - Models
+struct Token: Codable {
+    let accessToken: String
 }
 
-// 2. Input subject for user search text
-let searchInput = PassthroughSubject<String, Never>()
+struct UserProfile: Codable {
+    let username: String
+    let email: String
+}
 
-// 3. Setup the flatMap pipeline
-searchInput
-    .debounce(for: .milliseconds(300), scheduler: DispatchQueue.main)
-    .removeDuplicates()
-    .flatMap { query -> AnyPublisher<[String], Never> in
-        print("-> Transforming query '\(query)' into a network request...")
-        return performSearch(for: query)
+// MARK: - Service Layer
+class UserService {
+    // 1. Simulates logging in and returning a Token
+    func login(user: String, pass: String) -> AnyPublisher<Token, Error> {
+        return Just(Token(accessToken: "secret_jwt_token_xyz"))
+            .setFailureType(to: Error.self)
+            .eraseToAnyPublisher()
     }
-    .sink { results in
-        print("✅ Final Results Received: \(results)")
+    
+    // 2. Simulates fetching a profile using the Token
+    func fetchProfile(token: Token) -> AnyPublisher<UserProfile, Error> {
+        return Just(UserProfile(username: "alex_dev", email: "alex@example.com"))
+            .setFailureType(to: Error.self)
+            .eraseToAnyPublisher()
     }
+}
+
+// MARK: - Execution using flatMap
+let userService = UserService()
+var cancellables = Set<AnyCancellable>()
+
+userService.login(user: "alex_dev", pass: "password123")
+    .flatMap { token -> AnyPublisher<UserProfile, Error> in
+        // Take the emitted Token and switch to the fetchProfile publisher
+        print("Received token: \(token.accessToken), now fetching profile...")
+        return userService.fetchProfile(token: token)
+    }
+    .sink(
+        receiveCompletion: { completion in
+            if case .failure(let error) = completion {
+                print("Failed with error: \(error)")
+            }
+        },
+        receiveValue: { profile in
+            print("Successfully loaded profile for: \(profile.username) (\(profile.email))")
+        }
+    )
     .store(in: &cancellables)
-
-// 4. Testing the flow
-print("User types: Swift")
-searchInput.send("Swift")
 ```
 
 Flow:
